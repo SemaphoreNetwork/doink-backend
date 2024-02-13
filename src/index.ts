@@ -1,5 +1,14 @@
 import { Static, Type } from "@sinclair/typebox";
 import fastify, { FastifyInstance, FastifyReply } from "fastify";
+import {
+  Wallet,
+  JsonRpcProvider,
+  Interface,
+  TransactionResponse,
+  HDNodeWallet,
+  ErrorFragment,
+  TransactionReceipt,
+} from "ethers";
 import * as dotenv from "dotenv";
 
 // import DoinkContract from "../artifacts/sepolia/Doink.sol/Doink.json" with { type: "json" };
@@ -24,6 +33,13 @@ type ServerConfig = {
   host: string;
 };
 
+// Used in api below.
+const RPC = new JsonRpcProvider("https://eth.public-rpc.com", 1);
+if (!process.env.MNEMONIC) {
+  throw new Error("`MNEMONIC` must be defined in .env.");
+}
+const WALLET = Wallet.fromPhrase(process.env.MNEMONIC);
+
 /**
  * Converts an error into a json-like object.
  *
@@ -47,8 +63,18 @@ const api = {
     },
     doink: async (res: FastifyReply) => {
       try {
-        // TODO: Get the current doink mint nonce.
-        return res.status(200).send(JSON.stringify({ id: 1 }));
+        // Derive encoded calldata.
+        const iface = new Interface(DoinkContract.abi as any[]);
+        const data = iface.encodeFunctionData("nextDoink", []);
+        // Format transaction.
+        const tx = {
+          to: DoinkContract.address,
+          data,
+          chainId: 1,
+        };
+        // Get the current doink mint nonce.
+        const result = await RPC.call(tx);
+        return res.status(200).send(JSON.stringify({ id: parseInt(result) }));
       } catch (e) {
         const json = formatError(e);
         return res.status(500).send(json);
@@ -59,12 +85,31 @@ const api = {
     mint: async (body: MintRequest, res: FastifyReply) => {
       try {
         const { address } = body;
-        // TODO: Mint the doink
-        res.status(200).send(
-          JSON.stringify({
-            id: 1, //id,
-          })
-        );
+        // Derive encoded calldata.
+        const iface = new Interface(DoinkContract.abi as any[]);
+        const data = iface.encodeFunctionData("mint", [address]);
+        // Format transaction.
+        const tx = {
+          to: DoinkContract.address,
+          data,
+          chainId: 1,
+        };
+
+        // Mint the doink
+        const result: TransactionResponse = await WALLET.sendTransaction(tx);
+        const receipt: TransactionReceipt | null = await result.wait();
+        if (receipt) {
+          const mintedId = res.status(200).send(
+            JSON.stringify({
+              id: 1, //id,
+            })
+          );
+        } else {
+          throw new Error(
+            "Transaction failed. Received null response." +
+              JSON.stringify(result)
+          );
+        }
       } catch (e) {
         const json = formatError(e);
         return res.status(500).send(json);
@@ -74,11 +119,6 @@ const api = {
 };
 
 async function main() {
-  const mnemonic = process.env.MNEMONIC;
-  if (!mnemonic) {
-    throw new Error("No mnemonic found. Please define MNEMONIC in .env.");
-  }
-
   const config: ServerConfig = {
     adminToken: process.env.ADMIN_TOKEN ?? "doink",
     port: parseInt(process.env.PORT ?? "3000"),
