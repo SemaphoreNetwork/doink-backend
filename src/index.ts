@@ -11,7 +11,13 @@ import {
 } from "ethers";
 import * as dotenv from "dotenv";
 
-// import DoinkContract from "../artifacts/sepolia/Doink.sol/Doink.json" with { type: "json" };
+import DoinkContract from "../artifacts/optimism/Doink.sol/Doink.json" with { type: "json" };
+
+if (!(DoinkContract as any).address) {
+  throw new Error(
+    "Address for Doink contract not provided. Please deploy Doink and add address to artifact file."
+  );
+}
 
 dotenv.config();
 
