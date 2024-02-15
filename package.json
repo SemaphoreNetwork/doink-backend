@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "start": "nodemon --exec node --loader ts-node/esm src/index.ts"
+    "start": "nodemon --exec node --loader ts-node/esm src/index.ts",
+    "deploy": "node --loader ts-node/esm src/deploy.ts"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

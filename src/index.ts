@@ -4,8 +4,10 @@ import {
   Wallet,
   JsonRpcProvider,
   Interface,
-  TransactionResponse,
-  TransactionReceipt,
+  Contract,
+  ContractTransactionResponse,
+  ContractTransactionReceipt,
+  EventLog,
 } from "ethers";
 import * as dotenv from "dotenv";
 
@@ -66,6 +68,13 @@ if (!process.env.MNEMONIC) {
   throw new Error("`MNEMONIC` must be defined in .env.");
 }
 const WALLET = Wallet.fromPhrase(process.env.MNEMONIC, RPC);
+const CONTRACT = new Contract(DOINK.address, DOINK.abi, WALLET);
+
+// const filter = CONTRACT.filters.Minted();
+// const events = CONTRACT.queryFilter(filter, 5290471);
+// events.then((events) => {
+//   console.log(events);
+// });
 
 /**
  * Converts an error into a json-like object.
@@ -86,7 +95,7 @@ const api = {
   auth: {},
   get: {
     ping: async (res: FastifyReply) => {
-      return res.status(200).send("pong\n");
+      return res.status(200).send("poink\n");
     },
     doink: async (res: FastifyReply) => {
       try {
@@ -111,34 +120,40 @@ const api = {
     mint: async (body: MintRequest, res: FastifyReply) => {
       try {
         const { address } = body;
-        // Derive encoded calldata.
-        const data = IFACE.encodeFunctionData("mint", [address]);
-        // Format transaction.
-        const tx = {
-          to: DOINK.address,
-          data,
-          chainId: +CHAIN_ID,
-        };
-
         // Mint the doink
-        const result: TransactionResponse = await WALLET.sendTransaction(tx);
-        const receipt: TransactionReceipt | null = await result.wait();
-        if (receipt) {
-          const id = 1;
+        console.log("MINTING DOINK...");
+        const result: ContractTransactionResponse =
+          await CONTRACT.mint(address);
+        const receipt: ContractTransactionReceipt = await result.wait();
+        console.log("RESULT:", result);
+        console.log("\n\nRECEIPT:", receipt);
 
-          res.status(200).send(
-            JSON.stringify({
-              id,
-            })
-          );
-          console.log(`MINTED DOINK!\nAddress: ${address}\nID: ${id}`);
-        } else {
-          throw new Error(
-            "Transaction failed. Received null response." +
-              JSON.stringify(result)
-          );
+        const filter = CONTRACT.filters.Minted();
+        const events = await CONTRACT.queryFilter(
+          filter,
+          (await RPC.getBlockNumber()) - 40
+        );
+        const event = events.find(
+          (event) =>
+            (event as EventLog).args[0].toString().toLowerCase() ===
+            address.toLowerCase()
+        );
+        // TODO: Better solution for this?
+        if (!event) {
+          console.log(`Couldn't find event for address ${address}?`);
         }
+        const id = event
+          ? parseInt((event as EventLog).args[1].toString())
+          : 999;
+
+        console.log(`MINTED DOINK!\nAddress: ${address}\nID: ${id}`);
+        res.status(200).send(
+          JSON.stringify({
+            id,
+          })
+        );
       } catch (e) {
+        console.log("FAILED TO MINT DOINK. ERROR:", e);
         const json = formatError(e);
         return res.status(500).send(json);
       }
