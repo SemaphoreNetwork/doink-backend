@@ -1,5 +1,6 @@
 import { Static, Type } from "@sinclair/typebox";
 import fastify, { FastifyInstance, FastifyReply } from "fastify";
+import cors from "@fastify/cors";
 import {
   Wallet,
   JsonRpcProvider,
@@ -69,12 +70,6 @@ if (!process.env.MNEMONIC) {
 }
 const WALLET = Wallet.fromPhrase(process.env.MNEMONIC, RPC);
 const CONTRACT = new Contract(DOINK.address, DOINK.abi, WALLET);
-
-// const filter = CONTRACT.filters.Minted();
-// const events = CONTRACT.queryFilter(filter, 5290471);
-// events.then((events) => {
-//   console.log(events);
-// });
 
 /**
  * Converts an error into a json-like object.
@@ -178,6 +173,15 @@ async function main() {
     { schema: { body: MintRequestSchema } },
     async (req, res) => api.post.mint(req.body, res)
   );
+
+  // server.addHook("preHandler", (req, res, done) => {
+  //   res.header("Access-Control-Allow-Origin", "*");
+  //   done();
+  // });
+  server.register(cors, {
+    origin: ["http://localhost:3000"],
+    methods: ["GET", "POST"],
+  });
 
   const address = await server.listen({
     port: config.port,

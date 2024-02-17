@@ -18,6 +18,7 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
+    "@fastify/cors": "^9.0.1",
     "@sinclair/typebox": "^0.32.14",
     "@types/node": "^20.11.17",
     "dotenv": "^16.4.4",
