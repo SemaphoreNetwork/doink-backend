@@ -92,7 +92,7 @@ const api = {
     ping: async (res: FastifyReply) => {
       return res.status(200).send("poink\n");
     },
-    doink: async (res: FastifyReply) => {
+    doink: async (body: MintRequest, res: FastifyReply) => {
       try {
         // Derive encoded calldata.
         const data = IFACE.encodeFunctionData("nextDoink", []);
@@ -166,7 +166,9 @@ async function main() {
 
   server.get("/ping", (_, res) => api.get.ping(res));
 
-  server.get("/doink", (_, res) => api.get.doink(res));
+  server.get<{ Body: MintRequest }>("/doink", (req, res) =>
+    api.get.doink(req.body, res)
+  );
 
   server.post<{ Body: MintRequest }>(
     "/doink",
@@ -174,10 +176,6 @@ async function main() {
     async (req, res) => api.post.mint(req.body, res)
   );
 
-  // server.addHook("preHandler", (req, res, done) => {
-  //   res.header("Access-Control-Allow-Origin", "*");
-  //   done();
-  // });
   server.register(cors, {
     origin: ["*"],
     methods: ["GET", "POST"],
